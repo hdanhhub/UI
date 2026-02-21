@@ -1617,6 +1617,20 @@ end)
 						ButtonClick()
 					end
 				end
+				-- FIX: Add OnChanged support
+				local _toggleChangedCb = nil
+				local _origToggleCb = Callback
+				Callback = function(val)
+					if _origToggleCb then pcall(_origToggleCb, val) end
+					if _toggleChangedCb then pcall(_toggleChangedCb, val) end
+				end
+				function toggleFunction:OnChanged(fn)
+					_toggleChangedCb = fn
+					return self
+				end
+				function toggleFunction:SetValue(value)
+					toggleFunction.SetStage(value)
+				end
 				
 				local controlData = {
 					Name = Title,
@@ -1887,7 +1901,75 @@ end)
                 
 				return labelFunction
 			end
-            function sectionFunction:AddDropdownSection(Setting)
+			-- FIX: AddParagraph = alias for AddLabel with Title+Content support + SetDesc
+			function sectionFunction:AddParagraph(Setting)
+				local title = ""
+				local content = ""
+				if type(Setting) == "table" then
+					title = tostring(Setting.Title or Setting.Text or "")
+					content = tostring(Setting.Content or Setting.Desc or Setting.Description or "")
+				else
+					title = tostring(Setting or "")
+				end
+				local displayText = (title ~= "" and content ~= "") and (title .. "\n" .. content)
+					or (title ~= "" and title)
+					or content
+
+				local LabelFrame = Instance.new("Frame")
+				local LabelBG = Instance.new("Frame")
+				local UICornerP = Instance.new("UICorner")
+				local TextColor = Instance.new("TextLabel")
+
+				LabelFrame.Name = "ParagraphFrame"
+				LabelFrame.Parent = Section
+				LabelFrame.AutomaticSize = Enum.AutomaticSize.Y
+				LabelFrame.BackgroundTransparency = 1
+				LabelFrame.Size = UDim2.new(1, 0, 0, 0)
+
+				LabelBG.Name = "LabelBG"
+				LabelBG.Parent = LabelFrame
+				LabelBG.AnchorPoint = Vector2.new(0.5, 0)
+				LabelBG.AutomaticSize = Enum.AutomaticSize.Y
+				LabelBG.BackgroundColor3 = Color3.fromRGB(38, 38, 46)
+				LabelBG.BackgroundTransparency = 0.25
+				LabelBG.Position = UDim2.new(0.5, 0, 0, 0)
+				LabelBG.Size = UDim2.new(1, -10, 0, 0)
+
+				UICornerP.Parent = LabelBG
+				UICornerP.CornerRadius = UDim.new(0, 6)
+
+				TextColor.Name = "TextColor"
+				TextColor.Parent = LabelBG
+				TextColor.AutomaticSize = Enum.AutomaticSize.Y
+				TextColor.BackgroundTransparency = 1
+				TextColor.Position = UDim2.new(0, 12, 0, 6)
+				TextColor.Size = UDim2.new(1, -24, 0, 0)
+				TextColor.Font = Enum.Font.GothamMedium
+				TextColor.Text = displayText
+				TextColor.TextColor3 = Color3.fromRGB(240, 240, 230)
+				TextColor.TextSize = 13
+				TextColor.TextStrokeTransparency = 0.85
+				TextColor.TextWrapped = true
+				TextColor.TextXAlignment = Enum.TextXAlignment.Left
+				TextColor.RichText = true
+
+				local paragraphFunction = {}
+				function paragraphFunction:SetDesc(newContent)
+					TextColor.Text = (title ~= "" and (title .. "\n" .. tostring(newContent or ""))) or tostring(newContent or "")
+				end
+				function paragraphFunction:SetTitle(newTitle)
+					title = tostring(newTitle or "")
+					TextColor.Text = (title ~= "" and (title .. "\n" .. content)) or content
+				end
+				function paragraphFunction:SetText(text)
+					TextColor.Text = tostring(text or "")
+				end
+				return paragraphFunction
+			end
+			-- FIX: AddSection alias inside section (Fluent allows tab:AddSection)
+			function sectionFunction:AddSection(name)
+				return sectionFunction
+			end
                 local Title = tostring(Setting.Text or Setting.Title or "")
                 local Search = Setting.Search or false
               
@@ -2341,7 +2423,7 @@ end)
                     return nil
                 end)()
 				local Callback = Setting.Callback
-				local SortPairs = Setting.SortPairs
+				local _customPairs = Setting.SortPairs or pairs
 				local DropdownFrame = Instance.new("Frame")
 				local Dropdownbg = Instance.new("Frame")
 				local Dropdowncorner = Instance.new("UICorner")
@@ -2529,10 +2611,10 @@ end)
                     ListNew = List
                 end
 				local function refreshlist(SortPairs)
-					local iterPairs = SortPairs or pairs
+					local iterFn = SortPairs or _customPairs
 					clear_object_in_list()
 					searchtable = {}
-					for i, v in iterPairs(ListNew) do
+					for i, v in iterFn(ListNew) do
 						if Selected then
 							table.insert(searchtable, string.lower(i))
 						elseif Slider then
@@ -3165,6 +3247,17 @@ end)
                         return result
                     end
                 end
+                -- FIX: Add OnChanged support (banana_cat uses :OnChanged(fn))
+                local _dropChangedCb = nil
+                local _origDropCb = Callback
+                Callback = function(val, extra)
+                    if _origDropCb then pcall(_origDropCb, val, extra) end
+                    if _dropChangedCb then pcall(_dropChangedCb, val, extra) end
+                end
+                function dropdownFunction:OnChanged(fn)
+                    _dropChangedCb = fn
+                    return self
+                end
 				local controlData = {
                     Name = Title,
                     Section = Section,
@@ -3536,6 +3629,17 @@ end
 					Boxxx.Text = Value
 					Callback(Value)
 				end
+				-- FIX: Add OnChanged support
+				local _inputChangedCb = nil
+				local _origInputCb = Callback
+				Callback = function(val)
+					if _origInputCb then pcall(_origInputCb, val) end
+					if _inputChangedCb then pcall(_inputChangedCb, val) end
+				end
+				function textbox_function:OnChanged(fn)
+					_inputChangedCb = fn
+					return self
+				end
 				
 				local controlData = {
 					Name = TitleText,
@@ -3736,6 +3840,17 @@ end
 				function slider_function.SetValue(Value)
 					GetSliderValue(Value)
 				end
+				-- FIX: Add OnChanged support
+				local _sliderChangedCb = nil
+				local _origSliderCb = Callback
+				Callback = function(val)
+					if _origSliderCb then pcall(_origSliderCb, val) end
+					if _sliderChangedCb then pcall(_sliderChangedCb, val) end
+				end
+				function slider_function:OnChanged(fn)
+					_sliderChangedCb = fn
+					return self
+				end
 				local controlData = {
                     Name = TitleText,
                     Section = Section,
@@ -3867,6 +3982,21 @@ end
         end
 		return pagefunc
         end
+
+	-- FIX: Add Options table for vu1.Options["ToggleId"]:SetValue() pattern
+	Main_Function.Options = setmetatable({}, {
+		__index = function(t, k)
+			-- Return a dummy object that safely does nothing if key not found
+			return {
+				SetValue = function(self, v) end,
+				GetValue = function(self) return nil end,
+				OnChanged = function(self, fn) return self end,
+			}
+		end,
+		__newindex = function(t, k, v)
+			rawset(t, k, v)
+		end
+	})
 
 	return Main_Function
 end
